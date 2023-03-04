@@ -1,13 +1,18 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include "Klingon.h"
+#include <tuple>
+#include <algorithm>
+#include "Spaceship.h"
 
 using namespace std;
 
+const int MAX_DURATION = 1000000;
+
 void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
-int templateMatcher(const vector<Klingon>& templates, char k);
-int escapeDuration(const vector<vector<Klingon>>& ships);
+int templateMatcher(const vector<Spaceship>& templates, char k);
+int escapeDuration(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY);
+bool withinPerimeter(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY);
 
 int main(int argc, char** argv) {
     ifstream infile;
@@ -15,8 +20,9 @@ int main(int argc, char** argv) {
     string ifName, ofName, line;
     char kClass, kShip;
     int cases, numShips, kValue, x, y;
-    vector<Klingon> templates;
-    vector<vector<Klingon>> ships;
+    vector<Spaceship> templates = { Spaceship(0, 'E') }; //The enterprise template always exists
+    vector<vector<Spaceship>> ships;
+    tuple<int, int> startXY;
 
     initFiles(ifName, ofName, infile, outfile, argc, argv);
 
@@ -25,6 +31,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < cases; i++){
         getline(infile, line);
         numShips = stoi(line.substr(0, line.find(' ')));
+        line.erase(0, line.find(' ') + 1);
         x = stoi(line.substr(0, line.find(' '))); // split x
         line.erase(0, line.find(' ') + 1);
         y = stoi(line.substr(0, line.find(' '))); // split y
@@ -39,14 +46,14 @@ int main(int argc, char** argv) {
             ships.emplace_back();
             for (int v = 0; v < x; v++){
                 infile >> kShip;
-                if (kShip == 'E') v++;
-                else ships.at(u).emplace_back(templateMatcher(templates, kShip), kShip);
+                if (kShip == 'E') startXY = make_tuple(u, v);
+                ships.at(u).emplace_back(templateMatcher(templates, kShip), kShip);
             }
             infile.ignore(); //skip newline
         }
 
         //calculate and output duration
-        outfile << escapeDuration(ships) << endl;
+        outfile << escapeDuration(ships, startXY) << endl;
     }
 
     infile.close();
@@ -55,15 +62,45 @@ int main(int argc, char** argv) {
 }
 
 // Converts chars to ints based on templates stored in "templates"
-int templateMatcher(const vector<Klingon>& templates, char k){
-    for (Klingon klingon : templates) {
-        if (k == klingon.klass) return klingon.value;
+int templateMatcher(const vector<Spaceship>& templates, char k){
+    for (Spaceship s : templates) {
+        if (k == s.klass) return s.value;
     }
     return -1;
 }
 
-int escapeDuration(const vector<vector<Klingon>>& ships) {
-    return 0;
+bool withinPerimeter(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY) {
+    return get<0>(currentXY) > 0
+        && get<0>(currentXY) < ships.size() - 1
+        && get<1>(currentXY) > 0
+        && get<1>(currentXY) < ships[0].size();
+}
+
+int escapeDuration(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY) {
+    vector<tuple<int, int>> visited = { currentXY };
+    tuple<int, int> chosen = currentXY;
+    int sum = 0, least = MAX_DURATION;
+
+    while (withinPerimeter(ships, currentXY)) {
+        //following for loop inspects adjacent coordinates of ships matrix
+        for (int x = get<0>(currentXY) - 1; x <= get<0>(currentXY) + 1; x++) { //step through x coordinates
+            for (int y = get<1>(currentXY) - 1; y <= get<1>(currentXY) + 1; y++) { //step through y coordinates
+                //do if this coordinate is not within visited
+                if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
+                    if (ships[x][y].value < least) {
+                        chosen = make_tuple(x, y);
+                        least = ships[x][y].value;
+                    }
+            }
+        }
+        if (chosen == currentXY) return -1; //debug line, code failed.
+        visited.push_back(chosen);
+        currentXY = chosen;
+        sum += least;
+        least = MAX_DURATION;
+    }
+
+    return sum;
 }
 
 /*
