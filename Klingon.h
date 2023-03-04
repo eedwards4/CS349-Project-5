@@ -9,7 +9,7 @@
 class Klingon {
 public:
     int value = 0;
-    char shipClass;
+    char klass;
 
     Klingon(int, char);
 };

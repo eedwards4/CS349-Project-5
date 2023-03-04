@@ -6,14 +6,18 @@
 using namespace std;
 
 void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
-int klingonKonverter(char k);
+int templateMatcher(const vector<Klingon>& templates, char k);
+int escapeDuration(const vector<vector<Klingon>>& ships);
 
 int main(int argc, char** argv) {
     ifstream infile;
     ofstream outfile;
-    string ifName, ofName, line; char kClass, kShip;
-    int cases, numShips, x, y;
-    vector<Klingon> templates; vector<vector<Klingon>> ships;
+    string ifName, ofName, line;
+    char kClass, kShip;
+    int cases, numShips, kValue, x, y;
+    vector<Klingon> templates;
+    vector<vector<Klingon>> ships;
+
     initFiles(ifName, ofName, infile, outfile, argc, argv);
 
     getline(infile, line);
@@ -28,22 +32,38 @@ int main(int argc, char** argv) {
             getline(infile, line);
             kClass = line.substr(0, line.find(' '))[0];
             line.erase(0, line.find(' ') + 1);
-            templates.emplace_back(stoi(line.substr(0, line.size())), kClass);
+            kValue = stoi(line.substr(0, line.size()));
+            templates.emplace_back(kValue, kClass);
         }
-        for (int j = 0; j < y; j++){
+        for (int u = 0; u < y; u++){
             ships.emplace_back();
-            for (int k = 0; k < x; k++){
+            for (int v = 0; v < x; v++){
                 infile >> kShip;
-                if (kShip == 'E'){k++;}
-                else{ships.at(j).emplace_back(klingonKonverter(kShip), kShip);}
+                if (kShip == 'E') v++;
+                else ships.at(u).emplace_back(templateMatcher(templates, kShip), kShip);
             }
+            infile.ignore(); //skip newline
         }
+
+        //calculate and output duration
+        outfile << escapeDuration(ships) << endl;
     }
+
+    infile.close();
+    outfile.close();
+    return 0;
 }
 
 // Converts chars to ints based on templates stored in "templates"
-int klingonKonverter(char k){
+int templateMatcher(const vector<Klingon>& templates, char k){
+    for (Klingon klingon : templates) {
+        if (k == klingon.klass) return klingon.value;
+    }
+    return -1;
+}
 
+int escapeDuration(const vector<vector<Klingon>>& ships) {
+    return 0;
 }
 
 /*

@@ -6,5 +6,5 @@
 
 Klingon::Klingon(int newValue, char newShipClass){
     value = newValue;
-    shipClass = newShipClass;
+    klass = newShipClass;
 }
