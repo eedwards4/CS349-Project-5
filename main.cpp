@@ -7,7 +7,7 @@
 
 using namespace std;
 
-const int MAX_DURATION = 1000000;
+const int MAX_DURATION = 1000;
 
 void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
 int templateMatcher(const vector<Spaceship>& templates, char k);
@@ -54,6 +54,10 @@ int main(int argc, char** argv) {
 
         //calculate and output duration
         outfile << escapeDuration(ships, startXY) << endl;
+
+        templates.clear();
+        ships.clear();
+        templates.emplace_back(0, 'E');
     }
 
     infile.close();
@@ -73,26 +77,42 @@ bool withinPerimeter(const vector<vector<Spaceship>>& ships, tuple<int, int> cur
     return get<0>(currentXY) > 0
         && get<0>(currentXY) < ships.size() - 1
         && get<1>(currentXY) > 0
-        && get<1>(currentXY) < ships[0].size();
+        && get<1>(currentXY) < ships[0].size() - 1;
 }
 
 int escapeDuration(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY) {
-    vector<tuple<int, int>> visited = { currentXY };
-    tuple<int, int> chosen = currentXY;
-    int sum = 0, least = MAX_DURATION;
+    vector<tuple<int, int>> visited = { currentXY }; //visited coordinates
+    tuple<int, int> chosen = currentXY; //coordinate of the next ship to traverse
+    int sum = 0, least = MAX_DURATION, x, y;
 
     while (withinPerimeter(ships, currentXY)) {
-        //following for loop inspects adjacent coordinates of ships matrix
-        for (int x = get<0>(currentXY) - 1; x <= get<0>(currentXY) + 1; x++) { //step through x coordinates
-            for (int y = get<1>(currentXY) - 1; y <= get<1>(currentXY) + 1; y++) { //step through y coordinates
-                //do if this coordinate is not within visited
-                if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
-                    if (ships[x][y].value < least) {
-                        chosen = make_tuple(x, y);
-                        least = ships[x][y].value;
-                    }
-            }
+        x = get<0>(currentXY);
+        y = get<1>(currentXY);
+
+        x--;
+        while (x <= get<0>(currentXY) + 1) { //step through x coordinates
+            //do if this coordinate is not within visited
+            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
+                if (ships[x][y].value <= least) {
+                    chosen = make_tuple(x, y);
+                    least = ships[x][y].value;
+                }
+            x += 2; //skip looking at current x coordinate
         }
+
+        x = get<0>(currentXY);
+
+        y--;
+        while (y <= get<1>(currentXY) + 1) { //step through y coordinates
+            //do if this coordinate is not within visited
+            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
+                if (ships[x][y].value <= least) {
+                    chosen = make_tuple(x, y);
+                    least = ships[x][y].value;
+                }
+            y += 2; //skip looking at current y coordinate
+        }
+
         if (chosen == currentXY) return -1; //debug line, code failed.
         visited.push_back(chosen);
         currentXY = chosen;
