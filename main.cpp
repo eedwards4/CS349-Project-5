@@ -7,12 +7,13 @@
 
 using namespace std;
 
-const int MAX_DURATION = 1000;
+const int MAX_DURATION = 100000;
 
 void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
 int templateMatcher(const vector<Spaceship>& templates, char k);
-int escapeDuration(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY);
-bool withinPerimeter(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY);
+int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
+pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
+bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
 
 int main(int argc, char** argv) {
     ifstream infile;
@@ -22,7 +23,7 @@ int main(int argc, char** argv) {
     int cases, numShips, kValue, x, y;
     vector<Spaceship> templates = { Spaceship(0, 'E') }; //The enterprise template always exists
     vector<vector<Spaceship>> ships;
-    tuple<int, int> startXY;
+    pair<int, int> startYX;
 
     initFiles(ifName, ofName, infile, outfile, argc, argv);
 
@@ -42,22 +43,23 @@ int main(int argc, char** argv) {
             kValue = stoi(line.substr(0, line.size()));
             templates.emplace_back(kValue, kClass);
         }
-        for (int u = 0; u < y; u++){
+        for (int v = 0; v < y; v++){ //lines are read into ship by y value, then by x value; coordinates paired in
+                                     //pairs of {y, x} from here on.
             ships.emplace_back();
-            for (int v = 0; v < x; v++){
+            for (int u = 0; u < x; u++){
                 infile >> kShip;
-                if (kShip == 'E') startXY = make_tuple(u, v);
-                ships.at(u).emplace_back(templateMatcher(templates, kShip), kShip);
+                if (kShip == 'E') startYX = make_pair(v, u);
+                ships.at(v).emplace_back(templateMatcher(templates, kShip), kShip);
             }
             infile.ignore(); //skip newline
         }
 
         //calculate and output duration
-        outfile << escapeDuration(ships, startXY) << endl;
+        outfile << escapeDuration(ships, startYX) << endl;
 
         templates.clear();
         ships.clear();
-        templates.emplace_back(0, 'E');
+        templates.emplace_back(0, 'E'); //Add the Enterprise Spaceship template
     }
 
     infile.close();
@@ -68,56 +70,63 @@ int main(int argc, char** argv) {
 // Converts chars to ints based on templates stored in "templates"
 int templateMatcher(const vector<Spaceship>& templates, char k){
     for (Spaceship s : templates) {
-        if (k == s.klass) return s.value;
+        if (k == s.shipClass) return s.value;
     }
     return -1;
 }
 
-bool withinPerimeter(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY) {
-    return get<0>(currentXY) > 0
-        && get<0>(currentXY) < ships.size() - 1
-        && get<1>(currentXY) > 0
-        && get<1>(currentXY) < ships[0].size() - 1;
+bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
+    return currentYX.first > 0
+        && currentYX.first < ships.size() - 1
+        && currentYX.second > 0
+        && currentYX.second < ships[0].size() - 1;
 }
 
-int escapeDuration(const vector<vector<Spaceship>>& ships, tuple<int, int> currentXY) {
-    vector<tuple<int, int>> visited = { currentXY }; //visited coordinates
-    tuple<int, int> chosen = currentXY; //coordinate of the next ship to traverse
-    int sum = 0, least = MAX_DURATION, x, y;
+pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
+    int least = MAX_DURATION;
+    int y = currentYX.first;
+    int x = currentYX.second;
+    int finalY, finalX;
 
-    while (withinPerimeter(ships, currentXY)) {
-        x = get<0>(currentXY);
-        y = get<1>(currentXY);
+    y--;
+    while (y <= currentYX.first + 1) { //step through y coordinates
+        //do if this coordinate is not within visited
+        if (find(visited.begin(), visited.end(), make_pair(y, currentYX.second)) == visited.end())
+            if (ships[y][currentYX.second].value < least) {
+                finalY = y;
+                finalX = x;
+                least = ships[y][currentYX.second].value;
+            }
+        y += 2; //skip looking at current y coordinate
+    }
+    y = currentYX.first;
 
-        x--;
-        while (x <= get<0>(currentXY) + 1) { //step through x coordinates
-            //do if this coordinate is not within visited
-            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
-                if (ships[x][y].value <= least) {
-                    chosen = make_tuple(x, y);
-                    least = ships[x][y].value;
-                }
-            x += 2; //skip looking at current x coordinate
-        }
+    x--;
+    while (x <= currentYX.second + 1) { //step through x coordinates
+        //do if this coordinate is not within visited
+        if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
+            if (ships[currentYX.first][x].value < least) {
+                finalY = y;
+                finalX = x;
+                least = ships[currentYX.first][x].value;
+            }
+        x += 2; //skip looking at current x coordinate
+    }
 
-        x = get<0>(currentXY);
+    return make_pair(finalY, finalX);
+}
 
-        y--;
-        while (y <= get<1>(currentXY) + 1) { //step through y coordinates
-            //do if this coordinate is not within visited
-            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
-                if (ships[x][y].value <= least) {
-                    chosen = make_tuple(x, y);
-                    least = ships[x][y].value;
-                }
-            y += 2; //skip looking at current y coordinate
-        }
+int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
+    vector<pair<int, int>> visited = { currentYX }; //visited coordinates
+    pair<int, int> chosen; //coordinate of the next ship to traverse
+    int sum = 0;
 
-        if (chosen == currentXY) return -1; //debug line, code failed.
+    while (withinPerimeter(ships, currentYX)) {
+        chosen = chooseNeighbor(currentYX, visited, ships);
+        if (chosen == currentYX) return -1; //debug line, code failed if a new coordinate isn't chosen
         visited.push_back(chosen);
-        currentXY = chosen;
-        sum += least;
-        least = MAX_DURATION;
+        currentYX = chosen;
+        sum += ships[chosen.first][chosen.second].value;
     }
 
     return sum;

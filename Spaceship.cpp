@@ -6,5 +6,5 @@
 
 Spaceship::Spaceship(int newValue, char newShipClass){
     value = newValue;
-    klass = newShipClass;
+    shipClass = newShipClass;
 }

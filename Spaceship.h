@@ -9,7 +9,7 @@
 class Spaceship {
 public:
     int value = 0;
-    char klass;
+    char shipClass;
 
     Spaceship(int, char);
 };
