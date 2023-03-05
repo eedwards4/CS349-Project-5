@@ -104,10 +104,13 @@ pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, i
 
     for (pair p : getCandidates(currentYX, visited, ships)) {
         int candidateVal = ships[p.first][p.second].value;
-        if (candidateVal <= minVal) {
+        if (candidateVal < minVal) {
             finalY = p.first;
             finalX = p.second;
             minVal = candidateVal;
+        }
+        else if (candidateVal == minVal) {
+            //logic for favoring nodes that are closer to the perimeter in tiebreaker scenarios goes here?
         }
     }
 
