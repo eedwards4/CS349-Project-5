@@ -1,159 +1,178 @@
-//
-// Created by Joe Coon and Ethan Edwards on 3/3/23.
-//
-#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <tuple>
-#include "Klingon.h"
+#include <algorithm>
+#include "Spaceship.h"
 
 using namespace std;
 
-void initFiles(ifstream& infile, ofstream& outfile, int argc, const char* argv[]);
-int escapeDuration(const vector<vector<Klingon>>& ships, tuple<int, int> currentXY);
-bool withinPerimeter(const vector<vector<Klingon>>& ships, tuple<int, int> currentCoords);
-int templateMatcher(const vector<Klingon>& templates, char k);
+const int MAX_DURATION = 100000;
 
-const int MAX_DURATION = 1000;
+void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
+int templateMatcher(const vector<Spaceship>& templates, char k);
+int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
+pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
+bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
 
-int main(int argc, const char** argv){
-    // File access
-    ifstream infile; ofstream outfile;
-    initFiles(infile, outfile, argc, argv);
-    // Variables
-    string line; char kClass;
-    int cases, numClasses, gridx, gridy, kVal; tuple<int, int> startCoords;
-    vector<Klingon> templates {Klingon(0, 'E')}; // The Enterprise template always exists
-    vector<vector<Klingon>> ships;
-    // asdasdas
-    getline(infile, line); // Get number of cases
+int main(int argc, char** argv) {
+    ifstream infile;
+    ofstream outfile;
+    string ifName, ofName, line;
+    char kClass, kShip;
+    int cases, numShips, kValue, x, y;
+    vector<Spaceship> templates = { Spaceship(0, 'E') }; //The enterprise template always exists
+    vector<vector<Spaceship>> ships;
+    pair<int, int> startYX;
+
+    initFiles(ifName, ofName, infile, outfile, argc, argv);
+
+    getline(infile, line);
     cases = stoi(line);
     for (int i = 0; i < cases; i++){
-        getline(infile, line); // Get number of ship classes, grid x, and grid y for case n
-        numClasses = stoi(line.substr(0, line.find(' ')));
+        getline(infile, line);
+        numShips = stoi(line.substr(0, line.find(' ')));
         line.erase(0, line.find(' ') + 1);
-        gridx = stoi(line.substr(0, line.find(' ')));
+        x = stoi(line.substr(0, line.find(' '))); // split x
         line.erase(0, line.find(' ') + 1);
-        gridy = stoi(line.substr(0, line.size()));
-        for (int j = 0; j < numClasses; j++){
-            getline(infile, line); // Get the class identifier and the class int for class n
+        y = stoi(line.substr(0, line.find(' '))); // split y
+        for (int j = 0; j < numShips; j++) {
+            getline(infile, line);
             kClass = line.substr(0, line.find(' '))[0];
             line.erase(0, line.find(' ') + 1);
-            kVal = stoi(line.substr(0, line.size()));
-            templates.emplace_back(kVal, kClass); // Add a Klingon instance to the list of templates
+            kValue = stoi(line.substr(0, line.size()));
+            templates.emplace_back(kValue, kClass);
         }
-        for (int j = 0; j < gridy; j++){
+        for (int v = 0; v < y; v++){ //lines are read into ship by y value, then by x value; coordinates paired in
+                                     //pairs of {y, x} from here on.
             ships.emplace_back();
-            for (int k = 0; k < gridx; k++){
-                infile >> kClass;
-                if (kClass == 'E') startCoords = make_tuple(gridx, gridy);
-                ships.at(j).emplace_back(templateMatcher(templates, kClass), kClass);
+            for (int u = 0; u < x; u++){
+                infile >> kShip;
+                if (kShip == 'E') startYX = make_pair(v, u);
+                ships.at(v).emplace_back(templateMatcher(templates, kShip), kShip);
             }
-            infile.ignore();
+            infile.ignore(); //skip newline
         }
 
         //calculate and output duration
-        outfile << escapeDuration(ships, startCoords) << endl;
+        outfile << escapeDuration(ships, startYX) << endl;
 
         templates.clear();
         ships.clear();
-        templates.emplace_back(0, 'E');
+        templates.emplace_back(0, 'E'); //Add the Enterprise Spaceship template
     }
 
     infile.close();
     outfile.close();
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
-// Convert char to int based on template
-int templateMatcher(const vector<Klingon>& templates, char k){
-    for (Klingon i : templates){
-        if (k == i.shipClass) return i.value;
+// Converts chars to ints based on templates stored in "templates"
+int templateMatcher(const vector<Spaceship>& templates, char k){
+    for (Spaceship s : templates) {
+        if (k == s.shipClass) return s.value;
     }
     return -1;
 }
 
-// Check
-bool withinPerimeter(const vector<vector<Klingon>>& ships, tuple<int, int> currentCoords){
-    return get<0>(currentCoords) > 0 && get<0>(currentCoords) < ships.size() - 1 && get<1>(currentCoords) > 0 && get<1>(currentCoords) < ships[0].size() - 1;
+bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
+    return currentYX.first > 0
+        && currentYX.first < ships.size() - 1
+        && currentYX.second > 0
+        && currentYX.second < ships[0].size() - 1;
 }
 
-//
-int escapeDuration(const vector<vector<Klingon>>& ships, tuple<int, int> currentXY) {
-    vector<tuple<int, int>> visited = { currentXY }; //visited coordinates
-    tuple<int, int> chosen = currentXY; //coordinate of the next ship to traverse
-    int sum = 0, least = MAX_DURATION, x, y;
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
+    vector<pair<int, int>> candidates;
+    for (int y = currentYX.first - 1; y <= currentYX.first + 1; y += 2) { //step through y coordinates, skipping current
+        //do if this coordinate is not within visited
+        if (find(visited.begin(), visited.end(), make_pair(y, currentYX.second)) == visited.end())
+            candidates.emplace_back(y, currentYX.second);
+    }
+    for (int x = currentYX.second - 1; x <= currentYX.second + 1; x += 2) { //step through x coordinates, skipping current
+        //do if this coordinate is not within visited
+        if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
+            candidates.emplace_back(currentYX.first, x);
+    }
+    return candidates;
+}
 
-    while (withinPerimeter(ships, currentXY)) {
-        x = get<0>(currentXY);
-        y = get<1>(currentXY);
+pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
+    int minVal = MAX_DURATION;
+    int finalY, finalX;
 
-        x--;
-        while (x <= get<0>(currentXY) + 1) { //step through x coordinates
-            //do if this coordinate is not within visited
-            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
-                if (ships[x][y].value <= least) {
-                    chosen = make_tuple(x, y);
-                    least = ships[x][y].value;
-                }
-            x += 2; //skip looking at current x coordinate
+    for (pair p : getCandidates(currentYX, visited, ships)) {
+        int candidateVal = ships[p.first][p.second].value;
+        if (candidateVal < minVal) {
+            finalY = p.first;
+            finalX = p.second;
+            minVal = candidateVal;
         }
-
-        x = get<0>(currentXY);
-
-        y--;
-        while (y <= get<1>(currentXY) + 1) { //step through y coordinates
-            //do if this coordinate is not within visited
-            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
-                if (ships[x][y].value <= least) {
-                    chosen = make_tuple(x, y);
-                    least = ships[x][y].value;
-                }
-            y += 2; //skip looking at current y coordinate
+        else if (candidateVal == minVal) {
+            //logic for favoring nodes that are closer to the perimeter in tiebreaker scenarios goes here?
         }
+    }
 
-        if (chosen == currentXY) return -1; //debug line, code failed.
+    return make_pair(finalY, finalX);
+}
+
+int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
+    vector<pair<int, int>> visited = { currentYX }; //visited coordinates
+    pair<int, int> chosen; //coordinate of the next ship to traverse
+    int sum = 0;
+
+    while (withinPerimeter(ships, currentYX)) {
+        chosen = chooseNeighbor(currentYX, visited, ships);
+        if (chosen == currentYX) return -1; //debug line, code failed if a new coordinate isn't chosen
         visited.push_back(chosen);
-        currentXY = chosen;
-        sum += least;
-        least = MAX_DURATION;
+        currentYX = chosen;
+        sum += ships[chosen.first][chosen.second].value;
     }
 
     return sum;
 }
 
-// File handling logic
-void initFiles(ifstream& infile, ofstream& outfile, int argc, const char* argv[]){
-    char confirm = 'n'; string fname;
-    // Check for inputs
-    if (argc == 3){
+/*
+ *  This function receives user arguments and assigns them to the ifstream and ofstream objects which manage I/O
+ *  for the program. If the user supplies no arguments, this function tries to resolve the issue.
+ *
+ *  If the user has no input file available to pass, then they must enter ## when prompted to exit the program.
+ */
+void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []) {
+    //string dirPath = "inputOutputData/";
+    //infileName = outfileName = dirPath;
+
+    if (argc == 3) { //use passed arguments if user gave both input and output.
+        infileName.append(argv[1]);
+        outfileName.append(argv[2]);
         infile.open(argv[1]);
         outfile.open(argv[2]);
-    } else if (argc == 2){
-        fname = argv[1];
-        cout << "Found " << fname << " for input file. Continue using " << fname << " as input? (y/n) ";
-        cin >> confirm;
-        if (confirm == 'n'){
-            cout << "Enter the new input filename: " << endl;
-            cin >> fname;
+    }
+    else if (argc == 2) { //user passed one argument, confirm they wish to use it as an input file
+        char yesno = '\0';
+        infileName = argv[1];
+        cout << "Found " << infileName << " for input file. Continue using " << infileName << " for input? (y/n) ";
+        cin >> yesno;
+        if (yesno == 'n') {
+            infileName.clear();
+            cout << "Enter the new input filename: ";
+            cin >> infileName;
         }
-        infile.open(fname);
-    } else{
-        cout << "No input or output filename entered. Please run the program as ./a.out <input file> <output file>" << endl; // TODO: REPLACE ./a.out WITH COMPILED PROGRAM NAME
-        exit( EXIT_FAILURE);
+        infile.open(infileName);
     }
-
-    // Confirm that the files are actually open & ask for reentry if not valid
-    while (!outfile.is_open()){
+    while (!outfile.is_open()) { //request an output file from the user if there is none available
+        outfileName.clear();
         cout << "Please provide an existing filename to overwrite, or a new filename to create: ";
-        cin >> fname;
-        outfile = ofstream(fname, ios::out);
+        cin >> outfileName;
+        outfile = ofstream(outfileName, ios::out); /*invoking the ofstream constructor will create a
+                                                                       new file if one does not already exist.*/
     }
-    while (!infile.is_open() && fname != "##"){
-        cout << "No input file found. Please provide a relative path and filename for an input file "
-        << "or enter ## to close the program: ";
-        cin >> fname;
-        infile.open(fname);
+    while (!infile.is_open() && infileName != "##") { //request an input file from the user if there is none available
+        infileName.clear();
+        cout << "No input file was found. Please provide a relative path and filename for an input file "
+             << "(enter ## to close the program): ";
+        cin >> infileName;
+        infile.open(infileName);
     }
 }
