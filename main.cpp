@@ -85,26 +85,16 @@ bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> curr
 
 vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
     vector<pair<int, int>> candidates;
-    int y = currentYX.first;
-    int x = currentYX.second;
-
-    y--;
-    while (y <= currentYX.first + 1) { //step through y coordinates
+    for (int y = currentYX.first - 1; y <= currentYX.first + 1; y += 2) { //step through y coordinates, skipping current
         //do if this coordinate is not within visited
         if (find(visited.begin(), visited.end(), make_pair(y, currentYX.second)) == visited.end())
-            candidates.emplace_back(y, x);
-        y += 2; //skip looking at current y coordinate
+            candidates.emplace_back(y, currentYX.second);
     }
-    y = currentYX.first;
-
-    x--;
-    while (x <= currentYX.second + 1) { //step through x coordinates
+    for (int x = currentYX.second - 1; x <= currentYX.second + 1; x += 2) { //step through x coordinates, skipping current
         //do if this coordinate is not within visited
         if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
-            candidates.emplace_back(y, x);
-        x += 2; //skip looking at current x coordinate
+            candidates.emplace_back(currentYX.first, x);
     }
-
     return candidates;
 }
 
