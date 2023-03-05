@@ -1,91 +1,159 @@
+//
+// Created by Joe Coon and Ethan Edwards on 3/3/23.
+//
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <tuple>
 #include "Klingon.h"
 
 using namespace std;
 
-void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
-int klingonKonverter(char k);
+void initFiles(ifstream& infile, ofstream& outfile, int argc, const char* argv[]);
+int escapeDuration(const vector<vector<Klingon>>& ships, tuple<int, int> currentXY);
+bool withinPerimeter(const vector<vector<Klingon>>& ships, tuple<int, int> currentCoords);
+int templateMatcher(const vector<Klingon>& templates, char k);
 
-int main(int argc, char** argv) {
-    ifstream infile;
-    ofstream outfile;
-    string ifName, ofName, line; char kClass, kShip;
-    int cases, numShips, x, y;
-    vector<Klingon> templates; vector<vector<Klingon>> ships;
-    initFiles(ifName, ofName, infile, outfile, argc, argv);
+const int MAX_DURATION = 1000;
 
-    getline(infile, line);
+int main(int argc, const char** argv){
+    // File access
+    ifstream infile; ofstream outfile;
+    initFiles(infile, outfile, argc, argv);
+    // Variables
+    string line; char kClass;
+    int cases, numClasses, gridx, gridy, kVal; tuple<int, int> startCoords;
+    vector<Klingon> templates {Klingon(0, 'E')}; // The Enterprise template always exists
+    vector<vector<Klingon>> ships;
+    // asdasdas
+    getline(infile, line); // Get number of cases
     cases = stoi(line);
     for (int i = 0; i < cases; i++){
-        getline(infile, line);
-        numShips = stoi(line.substr(0, line.find(' ')));
-        x = stoi(line.substr(0, line.find(' '))); // split x
+        getline(infile, line); // Get number of ship classes, grid x, and grid y for case n
+        numClasses = stoi(line.substr(0, line.find(' ')));
         line.erase(0, line.find(' ') + 1);
-        y = stoi(line.substr(0, line.find(' '))); // split y
-        for (int j = 0; j < numShips; j++) {
-            getline(infile, line);
+        gridx = stoi(line.substr(0, line.find(' ')));
+        line.erase(0, line.find(' ') + 1);
+        gridy = stoi(line.substr(0, line.size()));
+        for (int j = 0; j < numClasses; j++){
+            getline(infile, line); // Get the class identifier and the class int for class n
             kClass = line.substr(0, line.find(' '))[0];
             line.erase(0, line.find(' ') + 1);
-            templates.emplace_back(stoi(line.substr(0, line.size())), kClass);
+            kVal = stoi(line.substr(0, line.size()));
+            templates.emplace_back(kVal, kClass); // Add a Klingon instance to the list of templates
         }
-        for (int j = 0; j < y; j++){
+        for (int j = 0; j < gridy; j++){
             ships.emplace_back();
-            for (int k = 0; k < x; k++){
-                infile >> kShip;
-                if (kShip == 'E'){k++;}
-                else{ships.at(j).emplace_back(klingonKonverter(kShip), kShip);}
+            for (int k = 0; k < gridx; k++){
+                infile >> kClass;
+                if (kClass == 'E') startCoords = make_tuple(gridx, gridy);
+                ships.at(j).emplace_back(templateMatcher(templates, kClass), kClass);
             }
+            infile.ignore();
         }
+
+        //calculate and output duration
+        outfile << escapeDuration(ships, startCoords) << endl;
+
+        templates.clear();
+        ships.clear();
+        templates.emplace_back(0, 'E');
     }
+
+    infile.close();
+    outfile.close();
+    exit(EXIT_SUCCESS);
 }
 
-// Converts chars to ints based on templates stored in "templates"
-int klingonKonverter(char k){
-
+// Convert char to int based on template
+int templateMatcher(const vector<Klingon>& templates, char k){
+    for (Klingon i : templates){
+        if (k == i.shipClass) return i.value;
+    }
+    return -1;
 }
 
-/*
- *  This function receives user arguments and assigns them to the ifstream and ofstream objects which manage I/O
- *  for the program. If the user supplies no arguments, this function tries to resolve the issue.
- *
- *  If the user has no input file available to pass, then they must enter ## when prompted to exit the program.
- */
-void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []) {
-    //string dirPath = "inputOutputData/";
-    //infileName = outfileName = dirPath;
+// Check
+bool withinPerimeter(const vector<vector<Klingon>>& ships, tuple<int, int> currentCoords){
+    return get<0>(currentCoords) > 0 && get<0>(currentCoords) < ships.size() - 1 && get<1>(currentCoords) > 0 && get<1>(currentCoords) < ships[0].size() - 1;
+}
 
-    if (argc == 3) { //use passed arguments if user gave both input and output.
-        infileName.append(argv[1]);
-        outfileName.append(argv[2]);
+//
+int escapeDuration(const vector<vector<Klingon>>& ships, tuple<int, int> currentXY) {
+    vector<tuple<int, int>> visited = { currentXY }; //visited coordinates
+    tuple<int, int> chosen = currentXY; //coordinate of the next ship to traverse
+    int sum = 0, least = MAX_DURATION, x, y;
+
+    while (withinPerimeter(ships, currentXY)) {
+        x = get<0>(currentXY);
+        y = get<1>(currentXY);
+
+        x--;
+        while (x <= get<0>(currentXY) + 1) { //step through x coordinates
+            //do if this coordinate is not within visited
+            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
+                if (ships[x][y].value <= least) {
+                    chosen = make_tuple(x, y);
+                    least = ships[x][y].value;
+                }
+            x += 2; //skip looking at current x coordinate
+        }
+
+        x = get<0>(currentXY);
+
+        y--;
+        while (y <= get<1>(currentXY) + 1) { //step through y coordinates
+            //do if this coordinate is not within visited
+            if (find(visited.begin(), visited.end(), make_tuple(x, y)) == visited.end())
+                if (ships[x][y].value <= least) {
+                    chosen = make_tuple(x, y);
+                    least = ships[x][y].value;
+                }
+            y += 2; //skip looking at current y coordinate
+        }
+
+        if (chosen == currentXY) return -1; //debug line, code failed.
+        visited.push_back(chosen);
+        currentXY = chosen;
+        sum += least;
+        least = MAX_DURATION;
+    }
+
+    return sum;
+}
+
+// File handling logic
+void initFiles(ifstream& infile, ofstream& outfile, int argc, const char* argv[]){
+    char confirm = 'n'; string fname;
+    // Check for inputs
+    if (argc == 3){
         infile.open(argv[1]);
         outfile.open(argv[2]);
-    }
-    else if (argc == 2) { //user passed one argument, confirm they wish to use it as an input file
-        char yesno = '\0';
-        infileName = argv[1];
-        cout << "Found " << infileName << " for input file. Continue using " << infileName << " for input? (y/n) ";
-        cin >> yesno;
-        if (yesno == 'n') {
-            infileName.clear();
-            cout << "Enter the new input filename: ";
-            cin >> infileName;
+    } else if (argc == 2){
+        fname = argv[1];
+        cout << "Found " << fname << " for input file. Continue using " << fname << " as input? (y/n) ";
+        cin >> confirm;
+        if (confirm == 'n'){
+            cout << "Enter the new input filename: " << endl;
+            cin >> fname;
         }
-        infile.open(infileName);
+        infile.open(fname);
+    } else{
+        cout << "No input or output filename entered. Please run the program as ./a.out <input file> <output file>" << endl; // TODO: REPLACE ./a.out WITH COMPILED PROGRAM NAME
+        exit( EXIT_FAILURE);
     }
-    while (!outfile.is_open()) { //request an output file from the user if there is none available
-        outfileName.clear();
+
+    // Confirm that the files are actually open & ask for reentry if not valid
+    while (!outfile.is_open()){
         cout << "Please provide an existing filename to overwrite, or a new filename to create: ";
-        cin >> outfileName;
-        outfile = ofstream(outfileName, ios::out); /*invoking the ofstream constructor will create a
-                                                                       new file if one does not already exist.*/
+        cin >> fname;
+        outfile = ofstream(fname, ios::out);
     }
-    while (!infile.is_open() && infileName != "##") { //request an input file from the user if there is none available
-        infileName.clear();
-        cout << "No input file was found. Please provide a relative path and filename for an input file "
-             << "(enter ## to close the program): ";
-        cin >> infileName;
-        infile.open(infileName);
+    while (!infile.is_open() && fname != "##"){
+        cout << "No input file found. Please provide a relative path and filename for an input file "
+        << "or enter ## to close the program: ";
+        cin >> fname;
+        infile.open(fname);
     }
 }

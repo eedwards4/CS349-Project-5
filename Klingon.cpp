@@ -1,5 +1,5 @@
 //
-// Created by student on 3/3/23.
+// Created by Joe Coon and Ethan Edwards on 3/3/23.
 //
 
 #include "Klingon.h"
