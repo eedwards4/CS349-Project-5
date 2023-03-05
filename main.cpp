@@ -14,6 +14,7 @@ int templateMatcher(const vector<Spaceship>& templates, char k);
 int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
 bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
 
 int main(int argc, char** argv) {
     ifstream infile;
@@ -82,21 +83,16 @@ bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> curr
         && currentYX.second < ships[0].size() - 1;
 }
 
-pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
-    int least = MAX_DURATION;
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
+    vector<pair<int, int>> candidates;
     int y = currentYX.first;
     int x = currentYX.second;
-    int finalY, finalX;
 
     y--;
     while (y <= currentYX.first + 1) { //step through y coordinates
         //do if this coordinate is not within visited
         if (find(visited.begin(), visited.end(), make_pair(y, currentYX.second)) == visited.end())
-            if (ships[y][currentYX.second].value < least) {
-                finalY = y;
-                finalX = x;
-                least = ships[y][currentYX.second].value;
-            }
+            candidates.emplace_back(y, x);
         y += 2; //skip looking at current y coordinate
     }
     y = currentYX.first;
@@ -105,12 +101,24 @@ pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, i
     while (x <= currentYX.second + 1) { //step through x coordinates
         //do if this coordinate is not within visited
         if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
-            if (ships[currentYX.first][x].value < least) {
-                finalY = y;
-                finalX = x;
-                least = ships[currentYX.first][x].value;
-            }
+            candidates.emplace_back(y, x);
         x += 2; //skip looking at current x coordinate
+    }
+
+    return candidates;
+}
+
+pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
+    int minVal = MAX_DURATION;
+    int finalY, finalX;
+
+    for (pair p : getCandidates(currentYX, visited, ships)) {
+        int candidateVal = ships[p.first][p.second].value;
+        if (candidateVal <= minVal) {
+            finalY = p.first;
+            finalX = p.second;
+            minVal = candidateVal;
+        }
     }
 
     return make_pair(finalY, finalX);
