@@ -9,9 +9,11 @@
 class Spaceship {
 public:
     int value = 0;
+    int perimeterDist = 0;
     char shipClass;
 
     Spaceship(int, char);
+    void setWeight(int);
 };
 
 

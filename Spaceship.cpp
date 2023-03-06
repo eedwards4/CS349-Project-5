@@ -8,3 +8,7 @@ Spaceship::Spaceship(int newValue, char newShipClass){
     value = newValue;
     shipClass = newShipClass;
 }
+
+void Spaceship::setWeight(int weight) {
+    perimeterDist = weight;
+}

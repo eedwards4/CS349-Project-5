@@ -51,6 +51,7 @@ int main(int argc, char** argv) {
                 infile >> kShip;
                 if (kShip == 'E') startYX = make_pair(v, u);
                 ships.at(v).emplace_back(templateMatcher(templates, kShip), kShip);
+                // TODO: THIS IS WHERE THE SHIPS SHOULD GET THEIR WEIGHTS, DEPENDANT ON X/Y COORDS
             }
             infile.ignore(); //skip newline
         }
@@ -99,18 +100,25 @@ vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair
 }
 
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
-    int minVal = MAX_DURATION;
+    int minVal = MAX_DURATION, minWeight = INT_MAX;
     int finalY, finalX;
 
     for (pair p : getCandidates(currentYX, visited, ships)) {
         int candidateVal = ships[p.first][p.second].value;
+        int candidateWeight = ships[p.first][p.second].perimeterDist;
         if (candidateVal < minVal) {
             finalY = p.first;
             finalX = p.second;
             minVal = candidateVal;
+            minWeight = candidateWeight;
         }
         else if (candidateVal == minVal) {
-            //logic for favoring nodes that are closer to the perimeter in tiebreaker scenarios goes here?
+            //logic for favoring nodes that are closer to the perimeter in tiebreaker scenarios (HOPEFULLY)
+            if (candidateWeight < minWeight){
+                finalX = p.first;
+                finalY = p.second;
+                minVal = candidateVal;
+            }
         }
     }
 
