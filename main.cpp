@@ -9,8 +9,9 @@ using namespace std;
 
 const int MAX_DURATION = 100000;
 
-void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []);
+void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]);
 int templateMatcher(const vector<Spaceship>& templates, char k);
+int weightMatcher(int colSize, int rowSize, int colPos, int rowPos);
 int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
 bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
@@ -19,49 +20,52 @@ vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair
 int main(int argc, char** argv) {
     ifstream infile;
     ofstream outfile;
-    string ifName, ofName, line;
+    string line;
     char kClass, kShip;
     int cases, numShips, kValue, x, y;
     vector<Spaceship> templates = { Spaceship(0, 'E') }; //The enterprise template always exists
     vector<vector<Spaceship>> ships;
     pair<int, int> startYX;
 
-    initFiles(ifName, ofName, infile, outfile, argc, argv);
+    initFiles(infile, outfile, argc, argv);
 
-    getline(infile, line);
-    cases = stoi(line);
-    for (int i = 0; i < cases; i++){
+    if (infile.is_open() && outfile.is_open()) {
         getline(infile, line);
-        numShips = stoi(line.substr(0, line.find(' ')));
-        line.erase(0, line.find(' ') + 1);
-        x = stoi(line.substr(0, line.find(' '))); // split x
-        line.erase(0, line.find(' ') + 1);
-        y = stoi(line.substr(0, line.find(' '))); // split y
-        for (int j = 0; j < numShips; j++) {
+        cases = stoi(line);
+        for (int i = 0; i < cases; i++){
             getline(infile, line);
-            kClass = line.substr(0, line.find(' '))[0];
+            numShips = stoi(line.substr(0, line.find(' ')));
             line.erase(0, line.find(' ') + 1);
-            kValue = stoi(line.substr(0, line.size()));
-            templates.emplace_back(kValue, kClass);
-        }
-        for (int v = 0; v < y; v++){ //lines are read into ship by y value, then by x value; coordinates paired in
-                                     //pairs of {y, x} from here on.
-            ships.emplace_back();
-            for (int u = 0; u < x; u++){
-                infile >> kShip;
-                if (kShip == 'E') startYX = make_pair(v, u);
-                ships.at(v).emplace_back(templateMatcher(templates, kShip), kShip);
-                // TODO: THIS IS WHERE THE SHIPS SHOULD GET THEIR WEIGHTS, DEPENDANT ON X/Y COORDS
+            x = stoi(line.substr(0, line.find(' '))); // split x
+            line.erase(0, line.find(' ') + 1);
+            y = stoi(line.substr(0, line.find(' '))); // split y
+            for (int j = 0; j < numShips; j++) {
+                getline(infile, line);
+                kClass = line.substr(0, line.find(' '))[0];
+                line.erase(0, line.find(' ') + 1);
+                kValue = stoi(line.substr(0, line.size()));
+                templates.emplace_back(kValue, kClass);
             }
-            infile.ignore(); //skip newline
+            for (int v = 0; v < y; v++){ //lines are read into ship by y value, then by x value; coordinates paired in
+                                         //pairs of {y, x} from here on.
+                ships.emplace_back();
+                for (int u = 0; u < x; u++){
+                    infile >> kShip;
+                    if (kShip == 'E') startYX = make_pair(v, u);
+                    ships.at(v).emplace_back(templateMatcher(templates, kShip), //coord value from class
+                                                weightMatcher(y, x, v, u), //coord weight
+                                                kShip); //coord class
+                }
+                infile.ignore(); //skip newline
+            }
+
+            //calculate and output duration
+            outfile << escapeDuration(ships, startYX) << endl;
+
+            templates.clear();
+            ships.clear();
+            templates.emplace_back(0, 'E'); //Add the Enterprise Spaceship template
         }
-
-        //calculate and output duration
-        outfile << escapeDuration(ships, startYX) << endl;
-
-        templates.clear();
-        ships.clear();
-        templates.emplace_back(0, 'E'); //Add the Enterprise Spaceship template
     }
 
     infile.close();
@@ -77,11 +81,21 @@ int templateMatcher(const vector<Spaceship>& templates, char k){
     return -1;
 }
 
-bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
-    return currentYX.first > 0
-        && currentYX.first < ships.size() - 1
-        && currentYX.second > 0
-        && currentYX.second < ships[0].size() - 1;
+int weightMatcher(int colSize, int rowSize, int colPos, int rowPos) {
+    int colWeight, rowWeight;
+    if (colPos >= colSize / 2) {
+        colWeight = colSize - colPos;
+    }
+    else {
+        colWeight = colPos + 1;
+    }
+    if (rowPos >= rowSize / 2) {
+        rowWeight = rowSize - rowPos;
+    }
+    else {
+        rowWeight = rowPos + 1;
+    }
+    return min(colWeight, rowWeight);
 }
 
 vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
@@ -96,7 +110,9 @@ vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair
         if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
             candidates.emplace_back(currentYX.first, x);
     }
-    return candidates;
+    return candidates.size() > 0 ? candidates : vector<pair<int, int>>({currentYX}); //if the enterprise got trapped,
+                                                                                       //return its last location.
+                                                                                       //otherwise, return candidates.
 }
 
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
@@ -105,7 +121,7 @@ pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, i
 
     for (pair p : getCandidates(currentYX, visited, ships)) {
         int candidateVal = ships[p.first][p.second].value;
-        int candidateWeight = ships[p.first][p.second].perimeterDist;
+        int candidateWeight = ships[p.first][p.second].perimeterWeight;
         if (candidateVal < minVal) {
             finalY = p.first;
             finalX = p.second;
@@ -115,9 +131,10 @@ pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, i
         else if (candidateVal == minVal) {
             //logic for favoring nodes that are closer to the perimeter in tiebreaker scenarios (HOPEFULLY)
             if (candidateWeight < minWeight){
-                finalX = p.first;
-                finalY = p.second;
+                finalY = p.first;
+                finalX = p.second;
                 minVal = candidateVal;
+                minWeight = candidateWeight;
             }
         }
     }
@@ -130,9 +147,9 @@ int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> curren
     pair<int, int> chosen; //coordinate of the next ship to traverse
     int sum = 0;
 
-    while (withinPerimeter(ships, currentYX)) {
+    while (ships[currentYX.first][currentYX.second].perimeterWeight > 1) { //do while within perimeter of ships matrix
         chosen = chooseNeighbor(currentYX, visited, ships);
-        if (chosen == currentYX) return -1; //debug line, code failed if a new coordinate isn't chosen
+        if (chosen == currentYX) return -1; //debug line, enterprise got trapped.
         visited.push_back(chosen);
         currentYX = chosen;
         sum += ships[chosen.first][chosen.second].value;
@@ -147,40 +164,39 @@ int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> curren
  *
  *  If the user has no input file available to pass, then they must enter ## when prompted to exit the program.
  */
-void initFiles(string& infileName, string& outfileName, ifstream& infile, ofstream& outfile, int argc, char* argv []) {
-    //string dirPath = "inputOutputData/";
-    //infileName = outfileName = dirPath;
-
-    if (argc == 3) { //use passed arguments if user gave both input and output.
-        infileName.append(argv[1]);
-        outfileName.append(argv[2]);
+void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]){
+    char confirm = 'n';
+    string fname;
+    // Check for inputs
+    if (argc == 3){
         infile.open(argv[1]);
         outfile.open(argv[2]);
     }
-    else if (argc == 2) { //user passed one argument, confirm they wish to use it as an input file
-        char yesno = '\0';
-        infileName = argv[1];
-        cout << "Found " << infileName << " for input file. Continue using " << infileName << " for input? (y/n) ";
-        cin >> yesno;
-        if (yesno == 'n') {
-            infileName.clear();
-            cout << "Enter the new input filename: ";
-            cin >> infileName;
+    else if (argc == 2) {
+        fname = argv[1];
+        cout << "Found " << fname << " for input file. Continue using " << fname << " as input? (y/n) ";
+        cin >> confirm;
+        if (confirm == 'n') {
+            cout << "Enter the new input filename: " << endl;
+            cin >> fname;
         }
-        infile.open(infileName);
+        infile.open(fname);
     }
-    while (!outfile.is_open()) { //request an output file from the user if there is none available
-        outfileName.clear();
+    else {
+        cout << "No input or output filename entered. Please run the program as ./a.out <input file> <output file>" << endl; // TODO: REPLACE ./a.out WITH COMPILED PROGRAM NAME
+        exit( EXIT_FAILURE);
+    }
+
+    // Confirm that the files are actually open & ask for reentry if not valid
+    while (!outfile.is_open()){
         cout << "Please provide an existing filename to overwrite, or a new filename to create: ";
-        cin >> outfileName;
-        outfile = ofstream(outfileName, ios::out); /*invoking the ofstream constructor will create a
-                                                                       new file if one does not already exist.*/
+        cin >> fname;
+        outfile = ofstream(fname, ios::out);
     }
-    while (!infile.is_open() && infileName != "##") { //request an input file from the user if there is none available
-        infileName.clear();
-        cout << "No input file was found. Please provide a relative path and filename for an input file "
-             << "(enter ## to close the program): ";
-        cin >> infileName;
-        infile.open(infileName);
+    while (!infile.is_open() && fname != "##"){
+        cout << "No input file found. Please provide a relative path and filename for an input file "
+             << "or enter ## to close the program: ";
+        cin >> fname;
+        infile.open(fname);
     }
 }
