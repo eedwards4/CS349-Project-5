@@ -29,7 +29,7 @@ struct Path { //struct containing a path and a total cost for traversing each el
         cost = p.cost;
     }
 
-    struct compare { //custom comparator for priority_queue to sort Path elements to prioritize low cost Paths
+    struct compare { //custom comparator for priority_queue to sort Path elements that prioritizes low cost Paths
         bool operator()(const Path& a, const Path& b) {
             return a.cost > b.cost;
         }
@@ -38,6 +38,7 @@ struct Path { //struct containing a path and a total cost for traversing each el
 
 int templateMatcher(const vector<Spaceship>& templates, char k);
 int weightMatcher(int yBound, int xBound, int yPos, int xPos);
+bool badToFork(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, const vector<Path>& pathHistory, const Path& thisTrek);
 int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX);
 Path pathEval(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, vector<pair<int, int>>& pathHistory);
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
@@ -141,8 +142,15 @@ int weightMatcher(int yBound, int xBound, int yPos, int xPos) {
     return min(yWeight, xWeight); //weight is for the nearest boundary
 }
 
+bool badToFork(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, const vector<Path>& pathHistory, const Path& thisTrek)  {
+    return ( (getCandidates(currentYX, pathHistory.back().path).front() == currentYX //if the currentYX is returned, then
+                                                                                          //the path is a dead end.
+           || ships[currentYX.first][currentYX.second].perimeterWeight == 1 ) //if true, path should not fork at exit.
+           && !thisTrek.path.empty());
+}
+
 /*
- *
+ * This function calculates the fastest path to the outside of a matrix of spaceships.
  */
 int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX) {
     priority_queue<Path, vector<Path>, Path::compare> validPaths;  //priorityqueue with custom compare function to
@@ -152,23 +160,21 @@ int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX) 
     vector<Path> pathHistory({ Path({startYX}, 0) });
     Path thisTrek(pathEval(ships, startYX, pathHistory.back().path));
 
-    while (validPaths.empty() || !pathHistory.empty()) { //do while there are no valid paths or there are no valid forks.
+    while (validPaths.empty() || !thisTrek.path.empty()) { //do while there are no valid paths or there are no valid forks.
         if (thisTrek.cost != -1)
-            validPaths.push(thisTrek); //found an exit path, add it to the history
+            validPaths.push(thisTrek); //found an exit path, add it to validPaths
         else if (thisTrek.cost == 0) return 0; //the minimum value for a path was found, return the first encountered.
 
-        pair<int, int> currentYX = pathHistory.back().path.back(); //update current coordinates
+        pair<int, int> currentYX = thisTrek.path.back(); //update current coordinates
 
         //find fork options
-        while (getCandidates(currentYX, thisTrek.path).front() == currentYX //if the currentYX is returned, then
-                                                                                  //the path is a dead end.
-            || ships[currentYX.first][currentYX.second].perimeterWeight == 1) { //if true, path should not fork at perimeter.
+        while (badToFork(ships, currentYX, pathHistory, thisTrek)) { //repeat loop while there are no good fork options
             thisTrek.path.pop_back(); //remove elements of the path from the end
-            currentYX = thisTrek.path.back(); //relocate coordinates to new end of the path
+            if (!thisTrek.path.empty()) currentYX = thisTrek.path.back(); //relocate coordinates to new end of the path
         }
 
         //evaluate a new path
-        thisTrek = pathEval(ships, currentYX, pathHistory.back().path);
+        if (!thisTrek.path.empty()) thisTrek = pathEval(ships, currentYX, pathHistory.back().path);
     }
     return validPaths.top().cost; //return the fastest path
 }
@@ -188,20 +194,22 @@ int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX) 
  *
  *     sum:         the cost of traversing the current path.
  */
-Path pathEval(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, vector<pair<int, int>>& currentPath) {
-    vector<pair<int, int>> visited = currentPath; //visited coordinates
+Path pathEval(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, vector<pair<int, int>>& pathHistory) {
+    vector<pair<int, int>> visited = pathHistory; //previously visited coordinates
+    vector<pair<int, int>> travelled = { currentYX }; //coordinates visited on this trek
     pair<int, int> chosen; //coordinate of the next ship to traverse
     int sum = 0;
 
     while (ships[currentYX.first][currentYX.second].perimeterWeight > 1) { //do while within perimeter of ships matrix
         chosen = chooseNeighbor(currentYX, visited, ships);
-        if (chosen == currentYX) return { visited, -1 }; //debug line, enterprise got trapped.
+        if (chosen == currentYX) return { travelled, -1 }; //debug line, enterprise got trapped.
         visited.push_back(chosen);
+        travelled.push_back(chosen);
         currentYX = chosen;
         sum += ships[chosen.first][chosen.second].value;
     }
-    currentPath = visited;
-    return { visited, sum };
+    pathHistory = visited;
+    return { travelled, sum };
 }
 
 /*
