@@ -9,9 +9,13 @@
 class Spaceship {
 public:
     int value = 0;
+    int perimeterWeight = 0;
     char shipClass;
 
+    Spaceship();
     Spaceship(int, char);
+    Spaceship(int, int, char);
+    void setWeight(int);
 };
 
 
