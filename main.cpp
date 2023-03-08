@@ -142,10 +142,37 @@ int weightMatcher(int yBound, int xBound, int yPos, int xPos) {
     return min(yWeight, xWeight); //weight is for the nearest boundary
 }
 
+/*
+ * This boolean checks for good conditions for a path to fork from the endpoint of thisTrek.
+ * For a good fork opportunity, there must be unvisited neighbors to currentYX, currentYX must
+ * not contain coordinates on the perimeter, and the path, thisTrek, must not be empty.
+ *
+ *      ships:          the Spaceship vector matrix.
+ *
+ *      currentYX:      current coordinates of thisTrek.path.back().
+ *
+ *      pathHistory:    vector of all previously visited paths.
+ *
+ *      thisTrek:       the most recently travelled path.
+ *
+ * Bool element explanation:
+ *
+ *      "(getCandidates(currentYX, pathHistory.back().path).front() == currentYX"
+ *
+ *      The value currentYX is returned by getCandidates if there are no unvisited neighbors,
+ *      indicating a dead end.
+ *
+ *      "ships[currentYX.first][currentYX.second].perimeterWeight == 1"
+ *
+ *      If a Spaceship has perimeterWeight == 1, then it is on the perimeter.
+ *
+ *      "!thisTrek.path.empty()"
+ *
+ *      There are no mo opportunities to fork if the path has exhausted all elements.
+ */
 bool badToFork(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, const vector<Path>& pathHistory, const Path& thisTrek)  {
-    return ( (getCandidates(currentYX, pathHistory.back().path).front() == currentYX //if the currentYX is returned, then
-                                                                                          //the path is a dead end.
-           || ships[currentYX.first][currentYX.second].perimeterWeight == 1 ) //if true, path should not fork at exit.
+    return ((getCandidates(currentYX, pathHistory.back().path).front() == currentYX
+           || ships[currentYX.first][currentYX.second].perimeterWeight == 1 )
            && !thisTrek.path.empty());
 }
 
