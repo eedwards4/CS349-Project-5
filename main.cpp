@@ -152,18 +152,10 @@ vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair
  *     visited:     the coordinate list of elements already traversed on the current path.
  *
  *     ships:       the matrix of Spaceship elements to path through.
- *
- *     minVal:      the smallest element value inspected.
- *
- *     minWeight:   the smallest perimeter weight inspected.
- *
- *     finalY:      the selected element's y coordinate.
- *
- *     finalX:      the selected element's x coordinate.
  */
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
-    int minVal = MAX_DURATION, minWeight = INT_MAX;
-    int finalY, finalX;
+    int minVal = MAX_DURATION, minWeight = INT_MAX; //smallest traversal value and perimeter weight inspected
+    int finalY, finalX; //currently chosen candidate coordinates
 
     for (pair p : getCandidates(currentYX, visited)) {
         int candidateVal = ships[p.first][p.second].value; //value for the currently inspected element
