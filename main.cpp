@@ -11,18 +11,17 @@ const int MAX_DURATION = 100000;
 
 void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]);
 int templateMatcher(const vector<Spaceship>& templates, char k);
-int weightMatcher(int colSize, int rowSize, int colPos, int rowPos);
+int weightMatcher(int yBound, int xBound, int yPos, int xPos);
 int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
-bool withinPerimeter(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
-vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited);
 
 int main(int argc, char** argv) {
     ifstream infile;
     ofstream outfile;
     string line;
     char kClass, kShip;
-    int cases, numShips, kValue, x, y;
+    int cases, numShips, kValue, xBound, yBound;
     vector<Spaceship> templates = { Spaceship(0, 'E') }; //The enterprise template always exists
     vector<vector<Spaceship>> ships;
     pair<int, int> startYX;
@@ -36,9 +35,9 @@ int main(int argc, char** argv) {
             getline(infile, line);
             numShips = stoi(line.substr(0, line.find(' ')));
             line.erase(0, line.find(' ') + 1);
-            x = stoi(line.substr(0, line.find(' '))); // split x
+            xBound = stoi(line.substr(0, line.find(' '))); // split xBound
             line.erase(0, line.find(' ') + 1);
-            y = stoi(line.substr(0, line.find(' '))); // split y
+            yBound = stoi(line.substr(0, line.find(' '))); // split yBound
             for (int j = 0; j < numShips; j++) {
                 getline(infile, line);
                 kClass = line.substr(0, line.find(' '))[0];
@@ -46,14 +45,15 @@ int main(int argc, char** argv) {
                 kValue = stoi(line.substr(0, line.size()));
                 templates.emplace_back(kValue, kClass);
             }
-            for (int v = 0; v < y; v++){ //lines are read into ship by y value, then by x value; coordinates paired in
-                                         //pairs of {y, x} from here on.
+            for (int yPos = 0; yPos < yBound; yPos++){ //lines are read into ship by y value,
+                                                       //then by x value; coordinates paired in pairs of
+                                                       //{y, x} from here on.
                 ships.emplace_back();
-                for (int u = 0; u < x; u++){
+                for (int xPos = 0; xPos < xBound; xPos++){
                     infile >> kShip;
-                    if (kShip == 'E') startYX = make_pair(v, u);
-                    ships.at(v).emplace_back(templateMatcher(templates, kShip), //coord value from class
-                                                weightMatcher(y, x, v, u), //coord weight
+                    if (kShip == 'E') startYX = make_pair(yPos, xPos);
+                    ships.at(yPos).emplace_back(templateMatcher(templates, kShip), //coord value from class
+                                                weightMatcher(yBound, xBound, yPos, xPos), //coord weight
                                                 kShip); //coord class
                 }
                 infile.ignore(); //skip newline
@@ -73,7 +73,13 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-// Converts chars to ints based on templates stored in "templates"
+/*
+ * This function returns the value of a Spaceship class given a
+ * Spaceship class:value template composed of Spaceship objects
+ *
+ * k is the shipClass character to match with a template value.
+ * templates is the list of Spaceship templates holding class:value pairs
+ */
 int templateMatcher(const vector<Spaceship>& templates, char k){
     for (Spaceship s : templates) {
         if (k == s.shipClass) return s.value;
@@ -81,24 +87,45 @@ int templateMatcher(const vector<Spaceship>& templates, char k){
     return -1;
 }
 
-int weightMatcher(int colSize, int rowSize, int colPos, int rowPos) {
-    int colWeight, rowWeight;
-    if (colPos >= colSize / 2) {
-        colWeight = colSize - colPos;
+/*
+ * This function calculates the perimeter weight of a matrix element
+ * given its coordinates within the bounds of the matrix.
+ *
+ *      yPos, xPos:     Receives the current coordinates of a matrix element.
+ *      yBound, xBound: Receives the bounds of the matrix.
+ *
+ * Returns the perimeter weight of a matrix element
+ */
+int weightMatcher(int yBound, int xBound, int yPos, int xPos) {
+    int yWeight, xWeight;
+    if (yPos >= yBound / 2) {
+        yWeight = yBound - yPos; //count descending from middle to end
     }
     else {
-        colWeight = colPos + 1;
+        yWeight = yPos + 1; //count ascending from start to middle
     }
-    if (rowPos >= rowSize / 2) {
-        rowWeight = rowSize - rowPos;
+    if (xPos >= xBound / 2) { //count descending from middle to end
+        xWeight = xBound - xPos;
     }
     else {
-        rowWeight = rowPos + 1;
+        xWeight = xPos + 1;  //count ascending from start to middle
     }
-    return min(colWeight, rowWeight);
+    return min(yWeight, xWeight); //weight is for the nearest boundary
 }
 
-vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
+/*
+ * This function evaluates adjacent indices of the matrix relative to the parameter
+ * currentYX. If an index is within the coordinate list parameter visited then it is
+ * skipped, otherwise that index is added to the list variable candidates. This function
+ * returns candidates when the process is finished, or a 1 element coordinate list containing
+ * currentYX.
+ *
+ *     currentYX:   the coordinate that centers the adjacency search. If this is a member of candidates,
+ *                  then the path is a dead end.
+ *
+ *     visited:     the coordinate list of elements already traversed on the current path.
+ */
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited) {
     vector<pair<int, int>> candidates;
     for (int y = currentYX.first - 1; y <= currentYX.first + 1; y += 2) { //step through y coordinates, skipping current
         //do if this coordinate is not within visited
@@ -115,13 +142,32 @@ vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair
                                                                                        //otherwise, return candidates.
 }
 
+/*
+ * This function selects the next adjacent element to traverse on the current path and returns
+ * that elements coordinate.
+ *
+ *     currentYX:   the coordinate that centers the adjacency search. If this is a member of candidates,
+ *                  then the path is a dead end.
+ *
+ *     visited:     the coordinate list of elements already traversed on the current path.
+ *
+ *     ships:       the matrix of Spaceship elements to path through.
+ *
+ *     minVal:      the smallest element value inspected.
+ *
+ *     minWeight:   the smallest perimeter weight inspected.
+ *
+ *     finalY:      the selected element's y coordinate.
+ *
+ *     finalX:      the selected element's x coordinate.
+ */
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships) {
     int minVal = MAX_DURATION, minWeight = INT_MAX;
     int finalY, finalX;
 
-    for (pair p : getCandidates(currentYX, visited, ships)) {
-        int candidateVal = ships[p.first][p.second].value;
-        int candidateWeight = ships[p.first][p.second].perimeterWeight;
+    for (pair p : getCandidates(currentYX, visited)) {
+        int candidateVal = ships[p.first][p.second].value; //value for the currently inspected element
+        int candidateWeight = ships[p.first][p.second].perimeterWeight; //weight for the currently inspected element
         if (candidateVal < minVal) {
             finalY = p.first;
             finalX = p.second;
@@ -142,6 +188,21 @@ pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, i
     return make_pair(finalY, finalX);
 }
 
+/*
+ * This function uses Dijkstra's algorithm to construct paths through the list until
+ * the path with the smallest traversal cost is found.
+ *
+ *     currentYX:   the coordinate that centers the adjacency search. If this is a member of candidates,
+ *                  then the path is a dead end.
+ *
+ *     visited:     the coordinate list of elements already traversed on the current path.
+ *
+ *     ships:       the matrix of Spaceship elements to traverse through.
+ *
+ *     chosen:      the candidate element to traverse through that is selected with Dijkstra's algorithm.
+ *
+ *     sum:         the cost of traversing the current path.
+ */
 int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
     vector<pair<int, int>> visited = { currentYX }; //visited coordinates
     pair<int, int> chosen; //coordinate of the next ship to traverse
