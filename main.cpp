@@ -3,18 +3,47 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
+#include <queue>
 #include "Spaceship.h"
 
 using namespace std;
 
 const int MAX_DURATION = 100000;
 
-void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]);
+struct Path { //struct containing a path and a total cost for traversing each element within it
+    vector<pair<int, int>> path;
+    int cost;
+
+    Path() {
+        path = vector<pair<int, int>>();
+        cost = 0;
+    }
+
+    Path(const vector<pair<int, int>>& p, int c) {
+        path.assign(p.begin(), p.end());
+        cost = c;
+    }
+
+    Path(const Path& p) {
+        path = p.path;
+        cost = p.cost;
+    }
+
+    struct compare { //custom comparator for priority_queue to sort Path elements that prioritizes low cost Paths
+        bool operator()(const Path& a, const Path& b) {
+            return a.cost > b.cost;
+        }
+    };
+};
+
 int templateMatcher(const vector<Spaceship>& templates, char k);
 int weightMatcher(int yBound, int xBound, int yPos, int xPos);
-int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX);
+bool badToFork(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, const vector<Path>& pathHistory, const Path& thisTrek);
+int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX);
+Path pathEval(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, vector<pair<int, int>>& pathHistory);
 pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, int>>& visited, const vector<vector<Spaceship>>& ships);
 vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited);
+void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]);
 
 int main(int argc, char** argv) {
     ifstream infile;
@@ -60,7 +89,7 @@ int main(int argc, char** argv) {
             }
 
             //calculate and output duration
-            outfile << escapeDuration(ships, startYX) << endl;
+            outfile << fastestPath(ships, startYX) << endl;
 
             templates.clear();
             ships.clear();
@@ -114,32 +143,101 @@ int weightMatcher(int yBound, int xBound, int yPos, int xPos) {
 }
 
 /*
- * This function evaluates adjacent indices of the matrix relative to the parameter
- * currentYX. If an index is within the coordinate list parameter visited then it is
- * skipped, otherwise that index is added to the list variable candidates. This function
- * returns candidates when the process is finished, or a 1 element coordinate list containing
- * currentYX.
+ * This boolean checks for good conditions for a path to fork from the endpoint of thisTrek.
+ * For a good fork opportunity, there must be unvisited neighbors to currentYX, currentYX must
+ * not contain coordinates on the perimeter, and the path, thisTrek, must not be empty.
+ *
+ *      ships:          the Spaceship vector matrix.
+ *
+ *      currentYX:      current coordinates of thisTrek.path.back().
+ *
+ *      pathHistory:    vector of all previously visited paths.
+ *
+ *      thisTrek:       the most recently travelled path.
+ *
+ * Bool element explanation:
+ *
+ *      "(getCandidates(currentYX, pathHistory.back().path).front() == currentYX"
+ *
+ *      The value currentYX is returned by getCandidates if there are no unvisited neighbors,
+ *      indicating a dead end.
+ *
+ *      "ships[currentYX.first][currentYX.second].perimeterWeight == 1"
+ *
+ *      If a Spaceship has perimeterWeight == 1, then it is on the perimeter.
+ *
+ *      "!thisTrek.path.empty()"
+ *
+ *      There are no mo opportunities to fork if the path has exhausted all elements.
+ */
+bool badToFork(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, const vector<Path>& pathHistory, const Path& thisTrek)  {
+    return ((getCandidates(currentYX, pathHistory.back().path).front() == currentYX
+           || ships[currentYX.first][currentYX.second].perimeterWeight == 1 )
+           && !thisTrek.path.empty());
+}
+
+/*
+ * This function calculates the fastest path to the outside of a matrix of spaceships.
+ */
+int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX) {
+    priority_queue<Path, vector<Path>, Path::compare> validPaths;  //priorityqueue with custom compare function to
+                                                                   //store elements in non-decreasing order; improved
+                                                                   //performance on grabbing the smallest element, logn
+                                                                   //performance on pushing/popping elements
+    vector<Path> pathHistory({ Path({startYX}, 0) });
+    Path thisTrek(pathEval(ships, startYX, pathHistory.back().path));
+
+    while (validPaths.empty() || !thisTrek.path.empty()) { //do while there are no valid paths or there are no valid forks.
+        if (thisTrek.cost != -1)
+            validPaths.push(thisTrek); //found an exit path, add it to validPaths
+        else if (thisTrek.cost == 0) return 0; //the minimum value for a path was found, return the first encountered.
+
+        pair<int, int> currentYX = thisTrek.path.back(); //update current coordinates
+
+        //find fork options
+        while (badToFork(ships, currentYX, pathHistory, thisTrek)) { //repeat loop while there are no good fork options
+            thisTrek.path.pop_back(); //remove elements of the path from the end
+            if (!thisTrek.path.empty()) currentYX = thisTrek.path.back(); //relocate coordinates to new end of the path
+        }
+
+        //evaluate a new path
+        if (!thisTrek.path.empty()) thisTrek = pathEval(ships, currentYX, pathHistory.back().path);
+
+    }
+    return validPaths.top().cost; //return the fastest path
+}
+
+/*
+ * This function uses Dijkstra's algorithm to construct paths through the list until
+ * the path with the smallest traversal cost is found.
  *
  *     currentYX:   the coordinate that centers the adjacency search. If this is a member of candidates,
  *                  then the path is a dead end.
  *
  *     visited:     the coordinate list of elements already traversed on the current path.
+ *
+ *     ships:       the matrix of Spaceship elements to traverse through.
+ *
+ *     chosen:      the candidate element to traverse through that is selected with Dijkstra's algorithm.
+ *
+ *     sum:         the cost of traversing the current path.
  */
-vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited) {
-    vector<pair<int, int>> candidates;
-    for (int y = currentYX.first - 1; y <= currentYX.first + 1; y += 2) { //step through y coordinates, skipping current
-        //do if this coordinate is not within visited
-        if (find(visited.begin(), visited.end(), make_pair(y, currentYX.second)) == visited.end())
-            candidates.emplace_back(y, currentYX.second);
+Path pathEval(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, vector<pair<int, int>>& pathHistory) {
+    vector<pair<int, int>> visited = pathHistory; //previously visited coordinates
+    vector<pair<int, int>> travelled = { currentYX }; //coordinates visited on this trek
+    pair<int, int> chosen; //coordinate of the next ship to traverse
+    int sum = 0;
+
+    while (ships[currentYX.first][currentYX.second].perimeterWeight > 1) { //do while within perimeter of ships matrix
+        chosen = chooseNeighbor(currentYX, visited, ships);
+        if (chosen == currentYX) return { travelled, -1 }; //debug line, enterprise got trapped.
+        visited.push_back(chosen);
+        travelled.push_back(chosen);
+        currentYX = chosen;
+        sum += ships[chosen.first][chosen.second].value;
     }
-    for (int x = currentYX.second - 1; x <= currentYX.second + 1; x += 2) { //step through x coordinates, skipping current
-        //do if this coordinate is not within visited
-        if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
-            candidates.emplace_back(currentYX.first, x);
-    }
-    return candidates.size() > 0 ? candidates : vector<pair<int, int>>({currentYX}); //if the enterprise got trapped,
-                                                                                       //return its last location.
-                                                                                       //otherwise, return candidates.
+    pathHistory = visited;
+    return { travelled, sum };
 }
 
 /*
@@ -181,34 +279,32 @@ pair<int, int> chooseNeighbor(pair<int, int> currentYX, const vector<pair<int, i
 }
 
 /*
- * This function uses Dijkstra's algorithm to construct paths through the list until
- * the path with the smallest traversal cost is found.
+ * This function evaluates adjacent indices of the matrix relative to the parameter
+ * currentYX. If an index is within the coordinate list parameter visited then it is
+ * skipped, otherwise that index is added to the list variable candidates. This function
+ * returns candidates when the process is finished, or a 1 element coordinate list containing
+ * currentYX.
  *
  *     currentYX:   the coordinate that centers the adjacency search. If this is a member of candidates,
  *                  then the path is a dead end.
  *
  *     visited:     the coordinate list of elements already traversed on the current path.
- *
- *     ships:       the matrix of Spaceship elements to traverse through.
- *
- *     chosen:      the candidate element to traverse through that is selected with Dijkstra's algorithm.
- *
- *     sum:         the cost of traversing the current path.
  */
-int escapeDuration(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX) {
-    vector<pair<int, int>> visited = { currentYX }; //visited coordinates
-    pair<int, int> chosen; //coordinate of the next ship to traverse
-    int sum = 0;
-
-    while (ships[currentYX.first][currentYX.second].perimeterWeight > 1) { //do while within perimeter of ships matrix
-        chosen = chooseNeighbor(currentYX, visited, ships);
-        if (chosen == currentYX) return -1; //debug line, enterprise got trapped.
-        visited.push_back(chosen);
-        currentYX = chosen;
-        sum += ships[chosen.first][chosen.second].value;
+vector<pair<int, int>> getCandidates(pair<int, int> currentYX, const vector<pair<int, int>>& visited) {
+    vector<pair<int, int>> candidates;
+    for (int y = currentYX.first - 1; y <= currentYX.first + 1; y += 2) { //step through y coordinates, skipping current
+        //do if this coordinate is not within visited
+        if (find(visited.begin(), visited.end(), make_pair(y, currentYX.second)) == visited.end())
+            candidates.emplace_back(y, currentYX.second);
     }
-
-    return sum;
+    for (int x = currentYX.second - 1; x <= currentYX.second + 1; x += 2) { //step through x coordinates, skipping current
+        //do if this coordinate is not within visited
+        if (find(visited.begin(), visited.end(), make_pair(currentYX.first, x)) == visited.end())
+            candidates.emplace_back(currentYX.first, x);
+    }
+    return candidates.empty() ? vector<pair<int, int>>({currentYX}) : candidates; //if the enterprise got trapped,
+                                                                                    //return its last location.
+                                                                                    //otherwise, return candidates.
 }
 
 /*

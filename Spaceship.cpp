@@ -21,7 +21,3 @@ Spaceship::Spaceship(int newValue, int newPeriWeight, char newShipClass) {
     perimeterWeight = newPeriWeight;
     shipClass = newShipClass;
 }
-
-void Spaceship::setWeight(int weight) {
-    perimeterWeight = weight;
-}
