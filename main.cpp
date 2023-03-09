@@ -202,6 +202,7 @@ int fastestPath(const vector<vector<Spaceship>>& ships, pair<int, int> startYX) 
 
         //evaluate a new path
         if (!thisTrek.path.empty()) thisTrek = pathEval(ships, currentYX, pathHistory.back().path);
+
     }
     return validPaths.top().cost; //return the fastest path
 }
