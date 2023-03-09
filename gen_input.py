@@ -59,10 +59,10 @@ char_set = []
 for number in range(0, num_classes):
     char_set.insert(len(char_set) - 1, rand.choice(valid_alphas))
     valid_alphas.replace(char_set[len(char_set) - 1], '')
-enterprise = [rand.randint(0, y_bound), rand.randint(0, x_bound)]
 
 file.write('{}\n'.format(cases))
 for i in range(0, cases):
+    enterprise = [rand.randint(1, y_bound - 2), rand.randint(1, x_bound - 2)]
     file.write('{0} {1} {2}\n'.format(num_classes, x_bound, y_bound))
     for j in range(0, num_classes):
         file.write('{0} {1}\n'.format(char_set[j], rand.randint(args.low_value, args.max_value)))
