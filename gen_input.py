@@ -1,9 +1,4 @@
-#
-#
-#   The first arg of this program determines how many test cases are given, and the second arg determines the
-#   limit on how many digits the numbers added together can have.
-#
-#
+
 import random as rand
 import string
 import argparse
