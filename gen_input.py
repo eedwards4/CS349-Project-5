@@ -17,8 +17,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument('coords',
                     action='extend',
                     nargs=2,
-                    choices=range(1, 1001),
-                    help='--REQUIRED--\nMust provide x and y boundaries of the matrix {RANGE(1,1000)}.',
+                    choices=range(3, 1001),
+                    help='--REQUIRED--\nMust provide x and y boundaries of the matrix {RANGE(3,1000)}.',
                     metavar='XY COORDS',
                     type=int)
 parser.add_argument('-c', '--cases',
