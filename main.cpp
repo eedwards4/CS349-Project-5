@@ -237,7 +237,7 @@ Path pathEval(const vector<vector<Spaceship>>& ships, pair<int, int> currentYX, 
         sum += ships[chosen.first][chosen.second].value;
     }
     pathHistory = visited;
-    return { travelled, sum };
+    return { travelled, sum }; // POTENTIALLY DOES NOT RETURN FULL PATH, MAKE SURE TO UNIT TEST THIS
 }
 
 /*
