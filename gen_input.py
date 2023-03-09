@@ -10,36 +10,39 @@ import argparse
 
 parser = argparse.ArgumentParser(
     prog='gen_input.py',
-    description='generate input'
+    description='generate input',
 )
 
+
+parser.add_argument('coords',
+                    action='extend',
+                    nargs=2,
+                    choices=range(1, 1001),
+                    help='--REQUIRED--\nMust provide x and y boundaries of the matrix {RANGE(1,1000)}.',
+                    metavar='XY COORDS',
+                    type=int)
 parser.add_argument('-c', '--cases',
                     choices=range(1, 100),
                     metavar='RANGE(1, 100)',
+                    help='Number of test cases.',
                     default='1',
                     type=int)
 parser.add_argument('-n', '--num-classes',
-                    choices=range(2, 26),
-                    metavar='RANGE(2, 25)',
+                    choices=range(1, 26),
+                    metavar='RANGE(1, 25)',
+                    help='Number of ship classes. Default is 2.',
                     default='2',
-                    type=int)
-parser.add_argument('-xy', '--coord',
-                    nargs=2,
-                    choices=range(1, 1001),
-                    help='--REQUIRED-- Must provide x and y boundaries of the matrix {RANGE(1,1000)}.',
-                    metavar='BOUNDARY_VAL',
-                    required=True,
                     type=int)
 parser.add_argument('-lv', '--low-value',
                     choices=range(0, 1000),
                     metavar='RANGE(0, 999)',
-                    help='Lowest value for a class.',
+                    help='Lowest value for a class. Default is 0.',
                     default=0,
                     type=int)
 parser.add_argument('-mv', '--max-value',
                     choices=range(1, 1001),
                     metavar='RANGE(1, 1000)',
-                    help='Max value for a class.',
+                    help='Max value for a class. Default is 1000.',
                     default=1000,
                     type=int)
 
@@ -48,8 +51,8 @@ args = parser.parse_args()
 file = open('cmake-build-debug\\gen_input.txt', 'w')
 cases = args.cases
 num_classes = args.num_classes
-x_bound = args.coord[0]
-y_bound = args.coord[1]
+x_bound = args.coords[0]
+y_bound = args.coords[1]
 
 valid_alphas = string.ascii_uppercase.replace('E', '')
 char_set = []
