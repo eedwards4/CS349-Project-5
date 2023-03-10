@@ -8,4 +8,5 @@
 +
 +
 ============================
-Press play or do a g++
+To build: g++ main.txt Spaceship.txt ShipPather.out
+To run: ./ShipPather.out <inputfile> <outputfile>
