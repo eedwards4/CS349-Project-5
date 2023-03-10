@@ -17,7 +17,7 @@ parser.add_argument('coords',
                     metavar='XY COORDS',
                     type=int)
 parser.add_argument('-c', '--cases',
-                    choices=range(1, 100),
+                    choices=range(1, 101),
                     metavar='RANGE(1, 100)',
                     help='Number of test cases.',
                     default='1',
