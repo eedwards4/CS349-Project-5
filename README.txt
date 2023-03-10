@@ -11,3 +11,4 @@
 To build: g++ main.txt Spaceship.txt ShipPather.out
 To run: ./ShipPather.out <inputfile> <outputfile>
 To DEBUG: Set global variables DEBUG and DEBUG_GRIDPRINT to true
+DO NOT RUN MULTITHREADED MODE WITHOUT TALKING TO ME FIRST IT'S SUPER JANK
