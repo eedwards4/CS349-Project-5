@@ -29,7 +29,7 @@ fstream DEBUG_MULTITHREAD_OUTFILE; // SIDENOTE: IF YOU TURN THIS ON WHILE YOU'RE
 
 // Functions
 void getInfo(vector<Spaceship>& defs, vector<vector<int>>& grid, vector<vector<int>>& weightGrid, ifstream& in, pair<int, int>& src);
-int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread);
+int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread = false, int threadID = -1, pair<int, int> retRef = {0, 0});
 void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]);
 int weightGen(int currX, int currY, int maxX, int maxY);
 int charToInt(vector<Spaceship>& defs, char in);
@@ -49,24 +49,21 @@ int main(int argc, char** argv){
     cases = stoi(line);
     // VERY VERY EXPERIMENTAL ZONE
     if (DEBUG_CONF_MULTITHREAD){ // Multithreading wooo!
-        cout << "SPOOLING THREADS\n";
         vector<thread> threadHandler; // Vector of threads
+        vector<pair<int, int>> threadOutputs;
+        for (int i = 0; i < cases; i++){threadOutputs.emplace_back();}
         DEBUG_MULTITHREAD_OUTFILE.open("multi_outfile.txt");
         if (!DEBUG_MULTITHREAD_OUTFILE.is_open()){exit(EXIT_FAILURE);}
         for (int i = 0; i < cases; i++){ // Create threads and add them to vector of threads
-            // cout << "SPOOLING THREAD #" << i << endl;
+            cout << "SPOOLING THREAD #" << i << "\n";
             getInfo(defs, grid, weightGrid, infile, src);
-            threadHandler.push_back(thread(getPath, grid, src.first, src.second, true));
+            threadHandler.push_back(thread(getPath, grid, src.first, src.second, true, i, ref(threadOutputs.at(i))));
             if (i + 1 != cases){threadHandler.at(i).detach();}
             else{threadHandler.at(i).join();} // Join only the last thread
             defs.clear(), grid.clear(), weightGrid.clear();
         }
-        /*
-         * STUFF TO DO TO MAKE THIS FUNCTIONAL:
-         * > Figure out why the output isn't ordered correctly (likely threads finishing out of order)
-         * > Incorporate multithreading more deeply (set up a way for each thread to return to the main program w/ a thread # and it's output for output ordering??)
-         * > Sleep for 72 straight hours lmao
-         */
+        // Sort the threads by threadID and output the sorted list to a file
+        // Having issues with making sure all threads finish while simultaneously having them run detached, for now all thread-related code is null & void
         DEBUG_MULTITHREAD_OUTFILE.close();
         return 0;
     }
@@ -84,8 +81,8 @@ int main(int argc, char** argv){
                 cout << "\n";
             }
         }
-        if (DEBUG){cout << getPath(grid, src.first, src.second, false) << "\n";}
-        outfile << getPath(grid, src.first, src.second, false) << "\n";
+        if (DEBUG){cout << getPath(grid, src.first, src.second) << "\n";}
+        outfile << getPath(grid, src.first, src.second) << "\n";
         defs.clear(); grid.clear(); weightGrid.clear();
     }
 
@@ -138,7 +135,7 @@ int charToInt(vector<Spaceship>& defs, char in){
 }
 
 // Get the shortest path to the exit
-int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread){
+int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread, int threadID, pair<int, int> retRef){
     int n = grid.size();
     int m = grid[0].size();
     vector<vector<int>> cost(n, vector<int>(m, INT_MAX));
@@ -163,7 +160,9 @@ int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread){
         visited[curr.x][curr.y] = true; // If not, flag this as a place we've been
 
         if (curr.x == 0 || curr.x == n - 1 || curr.y == 0 || curr.y == m - 1) {
-            // if (isThread){DEBUG_MULTITHREAD_OUTFILE << cost[curr.x][curr.y] + 6969 << endl; return 0;}
+            if (isThread){ // Special return because threads won't return normally and std::future is wack
+                DEBUG_MULTITHREAD_OUTFILE << cost[curr.x][curr.y] + 6969 << "\n";
+            }
             return cost[curr.x][curr.y] + 6969; // Return the current point if it falls on any of the boundaries
         }
 
