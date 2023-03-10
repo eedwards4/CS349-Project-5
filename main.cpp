@@ -118,12 +118,11 @@ int getPath(vector<vector<int>> grid, int srcX, int srcY){
     int m = grid[0].size();
     vector<vector<int>> cost(n, vector<int>(m, INT_MAX));
     vector<vector<bool>> visited(n, vector<bool>(m, false)); // Where have we been?
-    vector<vector<int>> myGrid = grid; // Make a copy of the grid (multithreading support)
 
     priority_queue<PathNode, vector<PathNode>, greater<PathNode>> paths;
 
-    paths.push({srcY, srcX, myGrid[srcY][srcX]});
-    cost[srcY][srcX] = myGrid[srcY][srcX];
+    paths.push({srcY, srcX, grid[srcY][srcX]});
+    cost[srcY][srcX] = grid[srcY][srcX];
 
     int surroundingX[] = {-1, 0, 1, 0}; // x+1 x-1
     int surroundingY[] = {0, 1, 0, -1}; // y+1 y-1
@@ -146,7 +145,7 @@ int getPath(vector<vector<int>> grid, int srcX, int srcY){
             int newY = curr.y + surroundingY[i];
 
             if (newX >= 0 && newX < n && newY >= 0 && newY < m && !visited[newX][newY]) { // Have we visited any of these tiles already?
-                int newCost = cost[curr.x][curr.y] + myGrid[newX][newY];
+                int newCost = cost[curr.x][curr.y] + grid[newX][newY];
 
                 if (newCost < cost[newX][newY]) { // If this is a better path, take it! (And place it in paths to be sorted)
                     cost[newX][newY] = newCost; // Update our total distance traveled
