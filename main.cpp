@@ -15,16 +15,16 @@ using namespace std;
 
 // Structs
 struct Node {
-    int x, y, weight;
+    int x, y, cost;
     bool operator>(const Node& other) const {
-        return weight > other.weight;
+        return cost > other.cost;
     }
 };
 
 // Globals
 bool DEBUG = false; // THIS WILL SLOW THINGS DOWN
 bool DEBUG_GRIDPRINT = false; // THIS WILL SLOW THINGS DOWN EVEN MORE
-bool DEBUG_CONF_MULTITHREAD = false; // THIS WILL MAKE EVERYTHING GO HYPERSPEED BUT THE OUTPUTS WILL BE OUT OF ORDER YOU HAVE BEEN WARNED
+bool DEBUG_CONF_MULTITHREAD = false; // THIS WILL MAKE EVERYTHING GO FASTER BUT THE OUTPUTS WILL BE OUT OF ORDER YOU HAVE BEEN WARNED
 fstream DEBUG_MULTITHREAD_OUTFILE; // SIDENOTE: IF YOU TURN THIS ON WHILE YOU'RE EVALUATING OUR CODE PLEASE COME TALK TO ME FIRST I WANT TO BE THERE FOR IT
 
 // Functions
@@ -84,8 +84,8 @@ int main(int argc, char** argv){
                 cout << "\n";
             }
         }
-        if (DEBUG){cout << getPath(grid, src.first, src.second, false) + 6969 << "\n";}
-        outfile << getPath(grid, src.first, src.second, false) + 6969 << "\n";
+        if (DEBUG){cout << getPath(grid, src.first, src.second, false) << "\n";}
+        outfile << getPath(grid, src.first, src.second, false) << "\n";
         defs.clear(); grid.clear(); weightGrid.clear();
     }
 
@@ -141,21 +141,21 @@ int charToInt(vector<Spaceship>& defs, char in){
 int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread){
     int n = grid.size();
     int m = grid[0].size();
-    vector<vector<int>> dist(n, vector<int>(m, INT_MAX));
+    vector<vector<int>> cost(n, vector<int>(m, INT_MAX));
     vector<vector<bool>> visited(n, vector<bool>(m, false)); // Where have we been?
-    vector<vector<int>> myGridCopy = grid; // Make a copy of the grid (multithreading support)
+    vector<vector<int>> myGrid = grid; // Make a copy of the grid (multithreading support)
 
-    priority_queue<Node, vector<Node>, greater<Node>> pq;
+    priority_queue<Node, vector<Node>, greater<Node>> bestPath;
 
-    pq.push({srcY, srcX, myGridCopy[srcY][srcX]});
-    dist[srcY][srcX] = myGridCopy[srcY][srcX];
+    bestPath.push({srcY, srcX, myGrid[srcY][srcX]});
+    cost[srcY][srcX] = myGrid[srcY][srcX];
 
-    int dx[] = {-1, 0, 1, 0}; // x+1 x-1
-    int dy[] = {0, 1, 0, -1}; // y+1 y-1
+    int surroundingX[] = {-1, 0, 1, 0}; // x+1 x-1
+    int surroundingY[] = {0, 1, 0, -1}; // y+1 y-1
 
-    while (!pq.empty()) {
-        Node curr = pq.top(); // Where we are
-        pq.pop();
+    while (!bestPath.empty()) {
+        Node curr = bestPath.top(); // Where we are
+        bestPath.pop();
 
         if (visited[curr.x][curr.y]) {
             continue; // Skip if we've already been here
@@ -163,20 +163,20 @@ int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread){
         visited[curr.x][curr.y] = true; // If not, flag this as a place we've been
 
         if (curr.x == 0 || curr.x == n - 1 || curr.y == 0 || curr.y == m - 1) {
-            if (isThread){DEBUG_MULTITHREAD_OUTFILE << dist[curr.x][curr.y] + 6969 << endl; return 0;}
-            return dist[curr.x][curr.y]; // Return the current point if it falls on any of the boundaries
+            // if (isThread){DEBUG_MULTITHREAD_OUTFILE << cost[curr.x][curr.y] + 6969 << endl; return 0;}
+            return cost[curr.x][curr.y] + 6969; // Return the current point if it falls on any of the boundaries
         }
 
         for (int i = 0; i < 4; i++) { // Check the 4 tiles around our current tile
-            int nx = curr.x + dx[i];
-            int ny = curr.y + dy[i];
+            int newX = curr.x + surroundingX[i];
+            int newY = curr.y + surroundingY[i];
 
-            if (nx >= 0 && nx < n && ny >= 0 && ny < m && !visited[nx][ny]) { // Have we visited any of these tiles already?
-                int newDist = dist[curr.x][curr.y] + myGridCopy[nx][ny];
+            if (newX >= 0 && newX < n && newY >= 0 && newY < m && !visited[newX][newY]) { // Have we visited any of these tiles already?
+                int newCost = cost[curr.x][curr.y] + myGrid[newX][newY];
 
-                if (newDist < dist[nx][ny]) { // If this is a better path, take it! (And place it in the pq to be sorted)
-                    dist[nx][ny] = newDist;
-                    pq.push({nx, ny, newDist});
+                if (newCost < cost[newX][newY]) { // If this is a better path, take it! (And place it in bestPath to be sorted)
+                    cost[newX][newY] = newCost; // Update our total distance traveled
+                    bestPath.push({newX, newY, newCost});
                 }
             }
         }
@@ -185,7 +185,7 @@ int getPath(vector<vector<int>> grid, int srcX, int srcY, bool isThread){
     return -1;
 }
 
-// Get the weight of point n (DEPRECATED BUT STILL USEFUL CODE)
+// Get the cost of point n (DEPRECATED BUT STILL USEFUL CODE)
 int weightGen(int currX, int currY, int maxX, int maxY){
     int xWeight, yWeight;
     if (currY >= maxY / 2){
