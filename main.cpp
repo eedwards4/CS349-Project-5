@@ -25,8 +25,8 @@ struct PathNode {
 bool DEBUG = false; // THIS WILL SLOW THINGS DOWN
 
 // Functions
-void getInfo(vector<Spaceship>& defs, vector<vector<int>>& grid, ifstream& in, pair<int, int>& src);
-int getPath(vector<vector<int>> grid, int srcX, int srcY);
+void getInfo(vector<Spaceship>& defs, vector<vector<int>>& grid, ifstream& in, pair<int, int>& startXY);
+int getPath(vector<vector<int>> grid, int startX, int startY);
 int templateMatcher(const vector<Spaceship>& templates, char k);
 void initFiles(ifstream& infile, ofstream& outfile, int argc, char* argv[]);
 
@@ -67,9 +67,10 @@ int main(int argc, char** argv){
 }
 
 // Get the pre-run information for a set (xy, ship defs, etc)
-void getInfo(vector<Spaceship>& defs, vector<vector<int>>& grid, ifstream& in, pair<int, int>& src){
-    if (DEBUG){cout << "Entered getInfo.\n";}
-    string line; int numDefs, xBound, yBound, kNum; char kClass;
+void getInfo(vector<Spaceship>& defs, vector<vector<int>>& grid, ifstream& in, pair<int, int>& startXY) {
+    string line;
+    int numDefs, xBound, yBound, kNum;
+    char kClass;
     // Get the number of defs and the xy of the grid
     getline(in, line);
     numDefs = stoi(line.substr(0, line.find(' ')));
@@ -91,7 +92,7 @@ void getInfo(vector<Spaceship>& defs, vector<vector<int>>& grid, ifstream& in, p
         grid.emplace_back(); // Create empty subvectors
         for (int j = 0; j < xBound; j++){
             in >> kClass;
-            if (kClass == 'E'){src.first = j, src.second = i;}
+            if (kClass == 'E') startXY.first = j, startXY.second = i;
             grid.at(i).emplace_back(templateMatcher(defs, kClass));
         }
         in.ignore(); // Skip newline
@@ -112,44 +113,56 @@ int templateMatcher(const vector<Spaceship>& templates, char k){
     return 0;
 }
 
-// Get the shortest path to the exit
-int getPath(vector<vector<int>> grid, int srcX, int srcY){
-    int n = grid.size();
-    int m = grid[0].size();
-    vector<vector<int>> cost(n, vector<int>(m, INT_MAX));
-    vector<vector<bool>> visited(n, vector<bool>(m, false)); // Where have we been?
+/*
+ * Function returns the cost to traverse the shortest path out of the matrix from the start point.
+ * This function does not find the components of the shortest path and calculate its cost to traverse,
+ * instead assigning a cost for traversal to every vertex within the matrix and returning the minimum value
+ * of those vertices which lie on the matrix perimeter.
+ *
+ *      grid:       The 2D int matrix of each vertex's individual traversal cost.
+ *
+ *      startX:     The initial x coordinate of the enterprise
+ *
+ *      startY:     The initial y coordinate of the enterprise
+ */
+int getPath(vector<vector<int>> grid, int startX, int startY){
+    int xPerimeter = grid.size(); //The index of the x perimeter wall
+    int yPerimeter = grid[0].size(); //The index of the y perimeter floor
+    vector<vector<int>> cost(xPerimeter, vector<int>(yPerimeter, INT_MAX)); //mapping of costs to traverse to each node
+    vector<vector<bool>> visited(xPerimeter, vector<bool>(yPerimeter, false)); // Where have we been?
 
-    priority_queue<PathNode, vector<PathNode>, greater<PathNode>> paths;
+    priority_queue<PathNode, vector<PathNode>, greater<PathNode>> paths; //min_heap of all valid paths
 
-    paths.push({srcY, srcX, grid[srcY][srcX]});
-    cost[srcY][srcX] = grid[srcY][srcX];
+    paths.push({startY, startX, grid[startY][startX]});
+    cost[startY][startX] = grid[startY][startX];
 
     int surroundingX[] = {-1, 0, 1, 0}; // x+1 x-1
     int surroundingY[] = {0, 1, 0, -1}; // y+1 y-1
 
     while (!paths.empty()) {
-        PathNode curr = paths.top(); // Where we are
+        PathNode curr = paths.top(); // Access the path with the minimum cost, assign it as current path.
         paths.pop();
 
-        if (visited[curr.x][curr.y]) {
-            continue; // Skip if we've already been here
-        }
-        visited[curr.x][curr.y] = true; // If not, flag this as a place we've been
+        if (!visited[curr.x][curr.y]) {
+            visited[curr.x][curr.y] = true; // If not, flag this as a place we've been
 
-        if (curr.x == 0 || curr.x == n - 1 || curr.y == 0 || curr.y == m - 1) {
-            return cost[curr.x][curr.y]; // Return the current point if it falls on any of the boundaries
-        }
+            if (curr.x == 0 || curr.x == xPerimeter - 1 || curr.y == 0 || curr.y == yPerimeter - 1) {
+                return cost[curr.x][curr.y]; // Return the current point if it falls on any of the boundaries
+            }
 
-        for (int i = 0; i < 4; i++) { // Check the 4 tiles around our current tile
-            int newX = curr.x + surroundingX[i];
-            int newY = curr.y + surroundingY[i];
+            for (int i = 0; i < 4; i++) { // Check the 4 nodes around our current node
+                int newX = curr.x + surroundingX[i];
+                int newY = curr.y + surroundingY[i];
 
-            if (newX >= 0 && newX < n && newY >= 0 && newY < m && !visited[newX][newY]) { // Have we visited any of these tiles already?
-                int newCost = cost[curr.x][curr.y] + grid[newX][newY];
+                if (newX >= 0 && newX < xPerimeter && newY >= 0 && newY < yPerimeter &&
+                    !visited[newX][newY]) { //Calculate a new cost for unvisited nodes
+                    int newCost = cost[curr.x][curr.y] + grid[newX][newY];
 
-                if (newCost < cost[newX][newY]) { // If this is a better path, take it! (And place it in paths to be sorted)
-                    cost[newX][newY] = newCost; // Update our total distance traveled
-                    paths.push({newX, newY, newCost});
+                    if (newCost <
+                        cost[newX][newY]) { // If this is a better path, take it! (And place it in paths to be sorted)
+                        cost[newX][newY] = newCost; // Update our total distance traveled
+                        paths.push({newX, newY, newCost});
+                    }
                 }
             }
         }
